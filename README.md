@@ -1,15 +1,23 @@
 # AI Technical Assistant - PWA con IA Local
 
-![Version](https://img.shields.io/badge/version-1.0.0_MVP-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![PWA](https://img.shields.io/badge/PWA-enabled-purple)
+![iOS](https://img.shields.io/badge/iOS-compatible-lightgrey)
+![Android](https://img.shields.io/badge/Android-compatible-green)
 
 Progressive Web App que ejecuta modelos de Inteligencia Artificial completamente en modo local (offline) para clasificación de imágenes técnicas.
+
+**Arquitectura Dual-Library**: Usa la mejor librería de IA según la plataforma
+- **iOS/iPadOS**: ONNX Runtime Web con WebGL
+- **PC/Android**: Transformers.js v3 con WebGPU/WASM
 
 ## Características Principales
 
 - **100% Offline**: Funciona sin conexión a internet después de la carga inicial
 - **IA Local**: Procesamiento completamente en el dispositivo, sin envío de datos a servidores
+- **Dual-Library**: Selección automática de librería óptima según plataforma
+- **Máxima Compatibilidad**: Funciona en iOS Safari, Android Chrome, y navegadores de escritorio
 - **Modelos Configurables**: Permite seleccionar entre diferentes modelos de IA según necesidades de velocidad/precisión
 - **PWA Instalable**: Se instala como app nativa en Android, iOS y escritorio
 - **Responsive**: Diseño adaptado a móviles, tablets y desktop
@@ -17,19 +25,38 @@ Progressive Web App que ejecuta modelos de Inteligencia Artificial completamente
 
 ## Tecnologías Utilizadas
 
-- **Transformers.js v3**: Motor de inferencia de IA en el navegador
+### iOS/iPadOS
+- **ONNX Runtime Web 1.20.1**: Motor de inferencia optimizado para Safari
+- **WebGL**: Aceleración por GPU en iOS
+- **MobileNetV2 ONNX**: Modelo de clasificación (13.3 MB)
+
+### PC/Android
+- **Transformers.js v3.0.2**: Motor de inferencia de IA en el navegador
 - **WebGPU/WASM**: Aceleración por hardware cuando está disponible
+- **MobileNetV4/V3/ResNet50**: Modelos de clasificación configurables
+
+### Común a Todas las Plataformas
 - **IndexedDB**: Almacenamiento persistente de historial
 - **Service Workers**: Funcionalidad offline y caché
 - **Vanilla JavaScript**: Sin frameworks, aplicación ligera
 
 ## Modelos Disponibles
 
+### PC/Android (Transformers.js)
+
 | Modelo | Tamaño | Velocidad | Precisión | Uso Recomendado |
 |--------|--------|-----------|-----------|-----------------|
-| MobileNetV4 Small | ~15 MB | Rápida | Buena | Pruebas y demos |
-| MobileNetV3 Large | ~20 MB | Media | Muy buena | Balance ideal |
-| ResNet50 | ~100 MB | Lenta | Excelente | Máxima precisión |
+| MobileNetV4 Small | ~15 MB | Rápida (WebGPU: 0.5-1s) | Buena | Pruebas y demos |
+| MobileNetV3 Large | ~20 MB | Media (WebGPU: 1-2s) | Muy buena | Balance ideal |
+| ResNet50 | ~100 MB | Lenta (WebGPU: 2-3s) | Excelente | Máxima precisión |
+
+### iOS/iPadOS (ONNX Runtime Web)
+
+| Modelo | Tamaño | Velocidad | Precisión | Plataforma |
+|--------|--------|-----------|-----------|------------|
+| MobileNetV2 | 13.3 MB | Media (WebGL: 2-4s) | Muy buena | iOS Safari |
+
+**Nota**: En iOS, el modelo se selecciona automáticamente para máxima compatibilidad.
 
 ## Requisitos del Sistema
 

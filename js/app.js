@@ -1,6 +1,10 @@
 /**
  * AI Technical Assistant - Main Application Entry Point
- * Version: 1.0.0 MVP
+ * Version: 2.0.0 - Dual Library Support (ONNX + Transformers.js)
+ *
+ * Architecture:
+ * - iOS/iPadOS: ONNX Runtime Web with WebGL
+ * - PC/Android: Transformers.js v3 with WebGPU/WASM
  */
 
 import DBManager from './utils/db-manager.js';
@@ -27,7 +31,7 @@ class App {
    * Initialize the application
    */
   async init() {
-    console.log('[App] Initializing AI Technical Assistant...');
+    console.log('[App] ===== Initializing AI Technical Assistant v2.0 =====');
 
     try {
       // Initialize core utilities
@@ -39,7 +43,7 @@ class App {
       // Initialize database
       await this.initializeDatabase();
 
-      // Initialize classifier module
+      // Initialize classifier module (auto-detects platform)
       await this.initializeClassifier();
 
       // Initialize UI controller
@@ -59,12 +63,21 @@ class App {
         this.storageManager.updateStorageInfo();
       }, 30000); // Every 30 seconds
 
-      console.log('[App] Application initialized successfully');
+      console.log('[App] ===== Application initialized successfully =====');
+
+      // Show platform-specific welcome message
+      const platformInfo = this.classifier.getPlatformInfo();
+      const adapterInfo = this.classifier.getAdapterInfo();
+
       this.errorHandler.showToast(
         'Bienvenido',
-        'AI Technical Assistant está listo para usar',
+        `AI Assistant v2.0 (${adapterInfo.name})`,
         'success'
       );
+
+      console.log('[App] Platform:', platformInfo.platform.isIOS ? 'iOS/iPadOS' : 'PC/Android');
+      console.log('[App] Adapter:', adapterInfo.name, 'v' + adapterInfo.version);
+      console.log('[App] Execution Provider:', platformInfo.recommendedExecutionProvider);
 
     } catch (error) {
       console.error('[App] Error during initialization:', error);
@@ -140,58 +153,24 @@ class App {
   }
 
   /**
-   * Detect if running on iOS/iPadOS
-   * @returns {boolean}
-   */
-  isIOS() {
-    const isIOSPlatform = [
-      'iPad Simulator',
-      'iPhone Simulator',
-      'iPod Simulator',
-      'iPad',
-      'iPhone',
-      'iPod'
-    ].includes(navigator.platform);
-
-    // iPad on iOS 13+ detection
-    const isIPadOS = navigator.userAgent.includes("Mac") && "ontouchend" in document;
-
-    const isIOS = isIOSPlatform || isIPadOS;
-
-    console.log('[App] iOS Detection:');
-    console.log('  - Platform:', navigator.platform);
-    console.log('  - User Agent:', navigator.userAgent);
-    console.log('  - isIOSPlatform:', isIOSPlatform);
-    console.log('  - isIPadOS:', isIPadOS);
-    console.log('  - Result:', isIOS);
-
-    return isIOS;
-  }
-
-  /**
    * Initialize classifier module
+   * Platform detection and library selection happens automatically
    */
   async initializeClassifier() {
     console.log('[App] Initializing classifier module...');
 
+    // Create classifier instance - it will auto-detect platform
     this.classifier = new ImageClassifier(
       this.dbManager,
       this.loadingManager,
       this.errorHandler
     );
 
-    // Detect iOS for special handling
-    const isIOSDevice = this.isIOS();
-    if (isIOSDevice) {
-      console.log('[App] iOS device detected - using Transformers.js v2 for compatibility');
-      this.errorHandler.showToast(
-        'iOS detectado',
-        'Usando Transformers.js v2 optimizado para iOS Safari',
-        'info'
-      );
-    }
+    // Get platform info for logging
+    const platformInfo = this.classifier.getPlatformInfo();
+    console.log('[App] Platform detected:', platformInfo);
 
-    // Load model normally on all platforms (including iOS with v2)
+    // Load model
     const defaultModel = 'mobilenet-v4';
     const savedModel = await this.dbManager.getSetting('selectedModel', defaultModel);
     console.log('[App] Loading model:', savedModel);
@@ -204,7 +183,7 @@ class App {
     } catch (error) {
       console.error('[App] Failed to initialize model:', error);
 
-      // If model fails to load (e.g., memory error), try with lightest model
+      // If model fails to load, try with lightest model
       if (savedModel !== 'mobilenet-v4') {
         console.warn('[App] Falling back to MobileNetV4');
         this.errorHandler.showToast(
@@ -265,14 +244,15 @@ class App {
   updateAppStatus() {
     const isOnline = navigator.onLine;
     const modelLoaded = this.classifier?.isModelLoaded();
+    const adapterInfo = this.classifier?.getAdapterInfo();
 
     if (this.statusDot && this.statusText) {
       if (modelLoaded && isOnline) {
         this.statusDot.className = 'status-dot online';
-        this.statusText.textContent = 'Online - Listo';
+        this.statusText.textContent = `Online - ${adapterInfo?.name || 'Listo'}`;
       } else if (modelLoaded && !isOnline) {
         this.statusDot.className = 'status-dot offline';
-        this.statusText.textContent = 'Offline - Listo';
+        this.statusText.textContent = `Offline - ${adapterInfo?.name || 'Listo'}`;
       } else {
         this.statusDot.className = 'status-dot';
         this.statusText.textContent = 'Cargando modelo...';

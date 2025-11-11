@@ -1,7 +1,13 @@
 /**
- * Image Classifier Module
- * Handles image classification using Transformers.js
+ * Image Classifier Module - Unified Interface
+ * Automatically selects the best AI library based on platform:
+ * - iOS/iPadOS: ONNX Runtime Web with WebGL
+ * - PC/Android: Transformers.js v3 with WebGPU/WASM
  */
+
+import PlatformDetector from './platform-detector.js';
+import ONNXAdapter from './onnx-adapter.js';
+import TransformersAdapter from './transformers-adapter.js';
 
 class ImageClassifier {
   constructor(dbManager, loadingManager, errorHandler) {
@@ -9,15 +15,21 @@ class ImageClassifier {
     this.loadingManager = loadingManager;
     this.errorHandler = errorHandler;
 
-    this.pipeline = null;
+    // Platform detection
+    this.platformDetector = new PlatformDetector();
+    this.platform = this.platformDetector.getSummary();
+
+    // Adapter (will be ONNX or Transformers based on platform)
+    this.adapter = null;
     this.modelLoaded = false;
     this.currentModel = null;
 
-    // Model configurations
+    // Model configurations with both ONNX and Transformers paths
     this.models = {
       'mobilenet-v4': {
         name: 'MobileNetV4 Small',
-        id: 'onnx-community/mobilenetv4_conv_small.e2400_r224_in1k',
+        transformersId: 'onnx-community/mobilenetv4_conv_small.e2400_r224_in1k',
+        onnxPath: './models/mobilenetv2-12.onnx', // ONNX fallback
         description: 'Modelo ligero optimizado para velocidad. Recomendado para pruebas iniciales.',
         size: '~15 MB',
         speed: 'Rápido',
@@ -25,7 +37,8 @@ class ImageClassifier {
       },
       'mobilenet-v3': {
         name: 'MobileNetV3 Large',
-        id: 'Xenova/mobilenet_v3_large',
+        transformersId: 'Xenova/mobilenet_v3_large',
+        onnxPath: './models/mobilenetv3-large.onnx',
         description: 'Modelo balanceado con buena precisión y velocidad moderada.',
         size: '~20 MB',
         speed: 'Medio',
@@ -33,13 +46,16 @@ class ImageClassifier {
       },
       'resnet50': {
         name: 'ResNet50',
-        id: 'Xenova/resnet-50',
+        transformersId: 'Xenova/resnet-50',
+        onnxPath: './models/resnet50.onnx',
         description: 'Modelo potente con alta precisión. Más lento pero más preciso.',
         size: '~100 MB',
         speed: 'Lento',
         iosCompatible: true
       }
     };
+
+    console.log('[Classifier] Initialized with platform:', this.platform);
   }
 
   /**
@@ -59,63 +75,60 @@ class ImageClassifier {
 
       console.log(`[Classifier] ===== Starting model initialization =====`);
       console.log(`[Classifier] Model: ${modelConfig.name}`);
-      console.log(`[Classifier] Model ID: ${modelConfig.id}`);
-      console.log(`[Classifier] Platform: ${navigator.platform}`);
+      console.log(`[Classifier] Platform: ${this.platform.platform.isIOS ? 'iOS' : 'PC/Android'}`);
+      console.log(`[Classifier] Recommended Library: ${this.platform.recommendedLibrary}`);
       console.log(`[Classifier] User Agent: ${navigator.userAgent}`);
 
-      this.loadingManager.showLoading(`Cargando modelo ${modelConfig.name}...`);
+      // Select appropriate adapter based on platform
+      if (this.platform.platform.isIOS) {
+        // iOS/iPadOS: Use ONNX Runtime Web
+        console.log('[Classifier] Using ONNX Runtime Web for iOS/iPadOS');
+        this.adapter = new ONNXAdapter(this.loadingManager, this.errorHandler);
 
-      // Dynamically import Transformers.js v2 (compatible with iOS Safari)
-      console.log('[Classifier] Importing Transformers.js v2.15.1...');
-      const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.1');
-      console.log('[Classifier] Transformers.js v2.15.1 imported successfully');
+        // For iOS, we'll use a pre-converted ONNX model
+        // For MVP, we use MobileNetV2 ONNX model from ONNX Model Zoo
+        const onnxModelUrl = 'https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-12.onnx';
 
-      // Configure environment
-      env.allowLocalModels = false;
-      env.allowRemoteModels = true;
-      console.log('[Classifier] Environment configured');
+        await this.adapter.initialize(onnxModelUrl, {
+          executionProvider: this.platform.recommendedExecutionProvider
+        });
 
-      // Detect WebGPU support
-      const device = await this.detectDevice();
-      console.log(`[Classifier] Using device: ${device}`);
+        this.errorHandler.showToast(
+          'iOS detectado',
+          `Usando ONNX Runtime Web con ${this.platform.recommendedExecutionProvider.toUpperCase()}`,
+          'info'
+        );
 
-      // Create pipeline with progress callback
-      console.log('[Classifier] Creating pipeline...');
-      this.pipeline = await pipeline(
-        'image-classification',
-        modelConfig.id,
-        {
-          device: device,
-          progress_callback: (progress) => {
-            console.log('[Classifier] Progress:', progress);
-            this.updateLoadProgress(progress);
-          }
-        }
-      );
-      console.log('[Classifier] Pipeline created successfully');
+      } else {
+        // PC/Android: Use Transformers.js v3
+        console.log('[Classifier] Using Transformers.js v3 for PC/Android');
+        this.adapter = new TransformersAdapter(this.loadingManager, this.errorHandler);
+
+        await this.adapter.initialize(modelConfig.transformersId, {
+          numThreads: 4
+        });
+
+        this.errorHandler.showToast(
+          'Modelo cargado',
+          `${modelConfig.name} con ${this.platform.recommendedExecutionProvider.toUpperCase()}`,
+          'success'
+        );
+      }
 
       this.modelLoaded = true;
-      this.loadingManager.hideLoading();
-
       console.log(`[Classifier] ===== Model loaded successfully =====`);
-      this.errorHandler.showToast(
-        'Modelo cargado',
-        `${modelConfig.name} listo para clasificar imágenes`,
-        'success'
-      );
+      console.log(`[Classifier] Adapter: ${this.adapter.getName()} v${this.adapter.getVersion()}`);
 
       // Save selected model to settings
       await this.dbManager.saveSetting('selectedModel', modelKey);
 
     } catch (error) {
       this.modelLoaded = false;
-      this.loadingManager.hideLoading();
 
       console.error('[Classifier] ===== Error initializing model =====');
       console.error('[Classifier] Error name:', error.name);
       console.error('[Classifier] Error message:', error.message);
       console.error('[Classifier] Error stack:', error.stack);
-      console.error('[Classifier] Full error:', error);
 
       // Check for memory errors (common on iOS/iPad)
       if (error.message?.includes('out of memory') ||
@@ -125,7 +138,7 @@ class ImageClassifier {
         console.error('[Classifier] Memory error detected');
         this.errorHandler.showToast(
           'Memoria insuficiente',
-          `El modelo ${this.models[modelKey]?.name || modelKey} es demasiado grande. Prueba con MobileNetV4.`,
+          `El modelo ${this.models[modelKey]?.name || modelKey} es demasiado grande para este dispositivo.`,
           'error'
         );
       } else {
@@ -133,7 +146,8 @@ class ImageClassifier {
         this.errorHandler.handleError(error, {
           context: 'model-initialization',
           modelKey: modelKey,
-          modelConfig: this.models[modelKey]
+          platform: this.platform,
+          adapter: this.adapter?.getName() || 'unknown'
         });
       }
       throw error;
@@ -141,85 +155,32 @@ class ImageClassifier {
   }
 
   /**
-   * Detect best available device (WebGPU or WASM)
-   * @returns {Promise<string>}
-   */
-  async detectDevice() {
-    // Check for WebGPU support
-    if ('gpu' in navigator) {
-      try {
-        const adapter = await navigator.gpu.requestAdapter();
-        if (adapter) {
-          console.log('[Classifier] WebGPU available');
-          return 'webgpu';
-        }
-      } catch (error) {
-        console.log('[Classifier] WebGPU not available:', error.message);
-      }
-    }
-
-    console.log('[Classifier] Falling back to WASM');
-    return 'wasm';
-  }
-
-  /**
-   * Update loading progress
-   * @param {Object} progress - Progress information
-   */
-  updateLoadProgress(progress) {
-    if (progress.status === 'downloading') {
-      const percent = progress.progress ? Math.round(progress.progress) : 0;
-      this.loadingManager.updateProgress(percent);
-      this.loadingManager.updateMessage(`Descargando modelo... ${percent}%`);
-    } else if (progress.status === 'loading') {
-      this.loadingManager.updateMessage('Cargando modelo en memoria...');
-      this.loadingManager.updateProgress(90);
-    } else if (progress.status === 'ready') {
-      this.loadingManager.updateProgress(100);
-    }
-  }
-
-  /**
    * Classify an image
    * @param {string|File|HTMLImageElement} imageSource - Image to classify
    * @param {number} topK - Number of top results to return
-   * @returns {Promise<Array>}
+   * @returns {Promise<Object>}
    */
   async classifyImage(imageSource, topK = 5) {
-    if (!this.modelLoaded || !this.pipeline) {
+    if (!this.modelLoaded || !this.adapter) {
       throw new Error('Model not loaded. Please initialize first.');
     }
 
     try {
-      console.log('[Classifier] Classifying image...');
-      this.loadingManager.showLoading('Clasificando imagen...');
+      console.log('[Classifier] Classifying image with adapter:', this.adapter.getName());
 
-      const startTime = performance.now();
+      // Delegate to the appropriate adapter
+      const result = await this.adapter.classifyImage(imageSource, topK);
 
-      // Run classification
-      const results = await this.pipeline(imageSource, {
-        topk: topK
-      });
+      console.log('[Classifier] Classification result:', result);
 
-      const endTime = performance.now();
-      const inferenceTime = ((endTime - startTime) / 1000).toFixed(2);
-
-      console.log(`[Classifier] Classification completed in ${inferenceTime}s`);
-      console.log('[Classifier] Results:', results);
-
-      this.loadingManager.hideLoading();
-
-      return {
-        results: results,
-        inferenceTime: inferenceTime,
-        model: this.currentModel,
-        timestamp: Date.now()
-      };
+      return result;
 
     } catch (error) {
-      this.loadingManager.hideLoading();
       console.error('[Classifier] Error during classification:', error);
-      this.errorHandler.handleError(error, { context: 'classification' });
+      this.errorHandler.handleError(error, {
+        context: 'classification',
+        adapter: this.adapter?.getName() || 'unknown'
+      });
       throw error;
     }
   }
@@ -273,7 +234,9 @@ class ImageClassifier {
         imageThumb: imageThumbnail,
         results: classificationResult.results,
         inferenceTime: classificationResult.inferenceTime,
-        model: classificationResult.model
+        model: classificationResult.model,
+        adapter: this.adapter?.getName() || 'unknown',
+        platform: this.platform.platform.isIOS ? 'iOS' : 'PC/Android'
       };
 
       const id = await this.dbManager.addToHistory(entry);
@@ -317,6 +280,28 @@ class ImageClassifier {
    */
   getCurrentModel() {
     return this.currentModel;
+  }
+
+  /**
+   * Get platform information
+   * @returns {Object}
+   */
+  getPlatformInfo() {
+    return this.platform;
+  }
+
+  /**
+   * Get current adapter information
+   * @returns {Object}
+   */
+  getAdapterInfo() {
+    if (!this.adapter) {
+      return { name: 'none', version: 'n/a' };
+    }
+    return {
+      name: this.adapter.getName(),
+      version: this.adapter.getVersion()
+    };
   }
 }
 
