@@ -12,7 +12,6 @@ class ImageClassifier {
     this.pipeline = null;
     this.modelLoaded = false;
     this.currentModel = null;
-    this.useAPI = false; // Flag to use Hugging Face API instead of local model
 
     // Model configurations
     this.models = {
@@ -22,7 +21,7 @@ class ImageClassifier {
         description: 'Modelo ligero optimizado para velocidad. Recomendado para pruebas iniciales.',
         size: '~15 MB',
         speed: 'Rápido',
-        iosCompatible: false
+        iosCompatible: true
       },
       'mobilenet-v3': {
         name: 'MobileNetV3 Large',
@@ -30,7 +29,7 @@ class ImageClassifier {
         description: 'Modelo balanceado con buena precisión y velocidad moderada.',
         size: '~20 MB',
         speed: 'Medio',
-        iosCompatible: false
+        iosCompatible: true
       },
       'resnet50': {
         name: 'ResNet50',
@@ -38,14 +37,6 @@ class ImageClassifier {
         description: 'Modelo potente con alta precisión. Más lento pero más preciso.',
         size: '~100 MB',
         speed: 'Lento',
-        iosCompatible: false
-      },
-      'api': {
-        name: 'API en Línea',
-        id: 'microsoft/resnet-50', // Hugging Face model for API
-        description: 'Clasificación usando servidor de Hugging Face. Requiere conexión a internet.',
-        size: '0 MB (online)',
-        speed: 'Depende de conexión',
         iosCompatible: true
       }
     };
@@ -74,10 +65,10 @@ class ImageClassifier {
 
       this.loadingManager.showLoading(`Cargando modelo ${modelConfig.name}...`);
 
-      // Dynamically import Transformers.js
-      console.log('[Classifier] Importing Transformers.js...');
-      const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
-      console.log('[Classifier] Transformers.js imported successfully');
+      // Dynamically import Transformers.js v2 (compatible with iOS Safari)
+      console.log('[Classifier] Importing Transformers.js v2.15.1...');
+      const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.1');
+      console.log('[Classifier] Transformers.js v2.15.1 imported successfully');
 
       // Configure environment
       env.allowLocalModels = false;
@@ -195,11 +186,6 @@ class ImageClassifier {
    * @returns {Promise<Array>}
    */
   async classifyImage(imageSource, topK = 5) {
-    // Use API if enabled (for iOS)
-    if (this.useAPI) {
-      return await this.classifyWithAPI(imageSource, topK);
-    }
-
     if (!this.modelLoaded || !this.pipeline) {
       throw new Error('Model not loaded. Please initialize first.');
     }
@@ -234,77 +220,6 @@ class ImageClassifier {
       this.loadingManager.hideLoading();
       console.error('[Classifier] Error during classification:', error);
       this.errorHandler.handleError(error, { context: 'classification' });
-      throw error;
-    }
-  }
-
-  /**
-   * Classify image using Hugging Face Inference API
-   * @param {string|File|HTMLImageElement} imageSource - Image to classify
-   * @param {number} topK - Number of top results to return
-   * @returns {Promise<Object>}
-   */
-  async classifyWithAPI(imageSource, topK = 5) {
-    try {
-      console.log('[Classifier] Classifying with API...');
-      this.loadingManager.showLoading('Clasificando con API en línea...');
-
-      const startTime = performance.now();
-
-      // Convert image to blob
-      let blob;
-      if (imageSource instanceof File) {
-        blob = imageSource;
-      } else if (typeof imageSource === 'string') {
-        // Convert data URL to blob
-        const response = await fetch(imageSource);
-        blob = await response.blob();
-      } else {
-        throw new Error('Unsupported image source type for API');
-      }
-
-      // Call Hugging Face Inference API
-      const apiUrl = `https://api-inference.huggingface.co/models/${this.models.api.id}`;
-
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        },
-        body: blob
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-      }
-
-      const results = await response.json();
-
-      const endTime = performance.now();
-      const inferenceTime = ((endTime - startTime) / 1000).toFixed(2);
-
-      console.log(`[Classifier] API classification completed in ${inferenceTime}s`);
-      console.log('[Classifier] Results:', results);
-
-      this.loadingManager.hideLoading();
-
-      // Transform API results to match local model format
-      const formattedResults = results.slice(0, topK).map(item => ({
-        label: item.label,
-        score: item.score
-      }));
-
-      return {
-        results: formattedResults,
-        inferenceTime: inferenceTime,
-        model: 'api',
-        timestamp: Date.now()
-      };
-
-    } catch (error) {
-      this.loadingManager.hideLoading();
-      console.error('[Classifier] Error during API classification:', error);
-      this.errorHandler.handleError(error, { context: 'api-classification' });
       throw error;
     }
   }

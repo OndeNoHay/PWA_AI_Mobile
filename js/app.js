@@ -180,38 +180,18 @@ class App {
       this.errorHandler
     );
 
-    // iOS/iPadOS: Use API instead of local model due to memory constraints
-    if (this.isIOS()) {
-      console.log('[App] iOS detected - using API mode');
-      this.classifier.useAPI = true;
-      this.classifier.modelLoaded = true; // Mark as "loaded" since API doesn't need loading
-      this.classifier.currentModel = 'api';
-
+    // Detect iOS for special handling
+    const isIOSDevice = this.isIOS();
+    if (isIOSDevice) {
+      console.log('[App] iOS device detected - using Transformers.js v2 for compatibility');
       this.errorHandler.showToast(
-        'iOS: Modo API Activado',
-        'Usando API en línea (requiere internet). Los modelos locales no funcionan en iOS debido a limitaciones de memoria.',
+        'iOS detectado',
+        'Usando Transformers.js v2 optimizado para iOS Safari',
         'info'
       );
-
-      // Update model selector to show API option
-      const modelSelect = document.getElementById('model-select');
-      if (modelSelect) {
-        modelSelect.value = 'api';
-        modelSelect.disabled = true; // Disable selector on iOS
-      }
-
-      // Update model info
-      const modelInfo = document.getElementById('model-info');
-      if (modelInfo) {
-        modelInfo.textContent = 'iOS usa API en línea. Requiere conexión a internet.';
-        modelInfo.style.backgroundColor = 'rgba(255, 193, 7, 0.1)';
-        modelInfo.style.borderColor = '#ffc107';
-      }
-
-      return; // Skip model loading
     }
 
-    // Non-iOS: Load model normally
+    // Load model normally on all platforms (including iOS with v2)
     const defaultModel = 'mobilenet-v4';
     const savedModel = await this.dbManager.getSetting('selectedModel', defaultModel);
     console.log('[App] Loading model:', savedModel);
