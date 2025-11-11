@@ -54,36 +54,47 @@ class ImageClassifier {
       this.currentModel = modelKey;
       const modelConfig = this.models[modelKey];
 
-      console.log(`[Classifier] Initializing model: ${modelConfig.name}`);
+      console.log(`[Classifier] ===== Starting model initialization =====`);
+      console.log(`[Classifier] Model: ${modelConfig.name}`);
+      console.log(`[Classifier] Model ID: ${modelConfig.id}`);
+      console.log(`[Classifier] Platform: ${navigator.platform}`);
+      console.log(`[Classifier] User Agent: ${navigator.userAgent}`);
+
       this.loadingManager.showLoading(`Cargando modelo ${modelConfig.name}...`);
 
       // Dynamically import Transformers.js
+      console.log('[Classifier] Importing Transformers.js...');
       const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
+      console.log('[Classifier] Transformers.js imported successfully');
 
       // Configure environment
       env.allowLocalModels = false;
       env.allowRemoteModels = true;
+      console.log('[Classifier] Environment configured');
 
       // Detect WebGPU support
       const device = await this.detectDevice();
       console.log(`[Classifier] Using device: ${device}`);
 
       // Create pipeline with progress callback
+      console.log('[Classifier] Creating pipeline...');
       this.pipeline = await pipeline(
         'image-classification',
         modelConfig.id,
         {
           device: device,
           progress_callback: (progress) => {
+            console.log('[Classifier] Progress:', progress);
             this.updateLoadProgress(progress);
           }
         }
       );
+      console.log('[Classifier] Pipeline created successfully');
 
       this.modelLoaded = true;
       this.loadingManager.hideLoading();
 
-      console.log(`[Classifier] Model ${modelConfig.name} loaded successfully`);
+      console.log(`[Classifier] ===== Model loaded successfully =====`);
       this.errorHandler.showToast(
         'Modelo cargado',
         `${modelConfig.name} listo para clasificar imágenes`,
@@ -96,19 +107,31 @@ class ImageClassifier {
     } catch (error) {
       this.modelLoaded = false;
       this.loadingManager.hideLoading();
-      console.error('[Classifier] Error initializing model:', error);
+
+      console.error('[Classifier] ===== Error initializing model =====');
+      console.error('[Classifier] Error name:', error.name);
+      console.error('[Classifier] Error message:', error.message);
+      console.error('[Classifier] Error stack:', error.stack);
+      console.error('[Classifier] Full error:', error);
 
       // Check for memory errors (common on iOS/iPad)
       if (error.message?.includes('out of memory') ||
           error.message?.includes('RangeError') ||
+          error.message?.includes('memory') ||
           error.name === 'RangeError') {
+        console.error('[Classifier] Memory error detected');
         this.errorHandler.showToast(
           'Memoria insuficiente',
-          'El modelo es demasiado grande para este dispositivo. Por favor, selecciona un modelo más ligero (MobileNetV4).',
+          `El modelo ${this.models[modelKey]?.name || modelKey} es demasiado grande. Prueba con MobileNetV4.`,
           'error'
         );
       } else {
-        this.errorHandler.handleError(error, { context: 'model-initialization' });
+        console.error('[Classifier] Non-memory error');
+        this.errorHandler.handleError(error, {
+          context: 'model-initialization',
+          modelKey: modelKey,
+          modelConfig: this.models[modelKey]
+        });
       }
       throw error;
     }

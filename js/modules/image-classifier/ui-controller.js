@@ -69,25 +69,32 @@ class ClassifierUIController {
       this.handleModelChange(e.target.value);
     });
 
-    // Upload buttons
+    // Upload button - simplified for iOS compatibility
     this.elements.uploadBtn?.addEventListener('click', (e) => {
-      e.stopPropagation(); // Prevent event from bubbling to uploadArea
-      this.elements.fileInput?.click();
-    });
+      console.log('[UI] Upload button clicked');
+      e.preventDefault();
+      e.stopPropagation();
 
-    this.elements.uploadArea?.addEventListener('click', (e) => {
-      // Only trigger if clicking the area itself, not the button
-      if (e.target === this.elements.uploadArea || e.target.closest('.upload-text') || e.target.closest('.upload-icon')) {
-        this.elements.fileInput?.click();
+      // Trigger file input directly - iOS requires this to be synchronous
+      if (this.elements.fileInput) {
+        console.log('[UI] Triggering file input');
+        this.elements.fileInput.click();
+      } else {
+        console.error('[UI] File input not found');
       }
     });
 
+    // File input change handler
     this.elements.fileInput?.addEventListener('change', (e) => {
+      console.log('[UI] File input changed', e.target.files.length, 'files');
       const file = e.target.files[0];
       if (file) {
+        console.log('[UI] File selected:', file.name, file.type, file.size);
         this.handleFileSelect(file);
         // Reset input to allow selecting the same file again
         e.target.value = '';
+      } else {
+        console.warn('[UI] No file selected');
       }
     });
 
@@ -120,11 +127,20 @@ class ClassifierUIController {
   }
 
   /**
-   * Setup drag and drop functionality
+   * Setup drag and drop functionality (desktop only)
    */
   setupDragAndDrop() {
+    // Skip drag and drop on mobile devices to avoid conflicts
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      console.log('[UI] Skipping drag and drop setup on mobile device');
+      return;
+    }
+
     const uploadArea = this.elements.uploadArea;
     if (!uploadArea) return;
+
+    console.log('[UI] Setting up drag and drop for desktop');
 
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       uploadArea.addEventListener(eventName, (e) => {

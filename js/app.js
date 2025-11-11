@@ -144,16 +144,28 @@ class App {
    * @returns {boolean}
    */
   isIOS() {
-    return [
+    const isIOSPlatform = [
       'iPad Simulator',
       'iPhone Simulator',
       'iPod Simulator',
       'iPad',
       'iPhone',
       'iPod'
-    ].includes(navigator.platform)
-    // iPad on iOS 13 detection
-    || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+    ].includes(navigator.platform);
+
+    // iPad on iOS 13+ detection
+    const isIPadOS = navigator.userAgent.includes("Mac") && "ontouchend" in document;
+
+    const isIOS = isIOSPlatform || isIPadOS;
+
+    console.log('[App] iOS Detection:');
+    console.log('  - Platform:', navigator.platform);
+    console.log('  - User Agent:', navigator.userAgent);
+    console.log('  - isIOSPlatform:', isIOSPlatform);
+    console.log('  - isIPadOS:', isIPadOS);
+    console.log('  - Result:', isIOS);
+
+    return isIOS;
   }
 
   /**
@@ -188,18 +200,41 @@ class App {
 
     // Initialize with saved or default model
     try {
+      console.log('[App] Attempting to initialize with model:', savedModel);
       await this.classifier.initialize(savedModel);
+      console.log('[App] Model initialized successfully');
     } catch (error) {
+      console.error('[App] Failed to initialize model:', error);
+
       // If model fails to load (e.g., memory error), try with lightest model
       if (savedModel !== 'mobilenet-v4') {
-        console.warn('[App] Model failed to load, falling back to MobileNetV4');
+        console.warn('[App] Falling back to MobileNetV4');
         this.errorHandler.showToast(
-          'Cargando modelo alternativo',
-          'Usando modelo más ligero debido a limitaciones del dispositivo',
+          'Modelo alternativo',
+          'Usando MobileNetV4 debido a limitaciones del dispositivo',
           'warning'
         );
-        await this.classifier.initialize('mobilenet-v4');
+
+        try {
+          await this.classifier.initialize('mobilenet-v4');
+          console.log('[App] Fallback to MobileNetV4 successful');
+        } catch (fallbackError) {
+          console.error('[App] Fallback also failed:', fallbackError);
+          this.errorHandler.showToast(
+            'Error crítico',
+            'No se pudo cargar ningún modelo. Por favor, recarga la página.',
+            'error'
+          );
+          throw fallbackError;
+        }
       } else {
+        // Even MobileNetV4 failed - this is a critical error
+        console.error('[App] Even MobileNetV4 failed to load');
+        this.errorHandler.showToast(
+          'Error crítico',
+          'No se pudo cargar el modelo. Verifica tu conexión y espacio disponible.',
+          'error'
+        );
         throw error;
       }
     }
