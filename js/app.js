@@ -180,21 +180,39 @@ class App {
       this.errorHandler
     );
 
-    // Determine default model based on device
-    let defaultModel = 'mobilenet-v4';
-
-    // iOS devices should use the lightest model by default due to memory constraints
+    // iOS/iPadOS: Use API instead of local model due to memory constraints
     if (this.isIOS()) {
-      defaultModel = 'mobilenet-v4';
-      console.log('[App] iOS detected, using lightweight model by default');
+      console.log('[App] iOS detected - using API mode');
+      this.classifier.useAPI = true;
+      this.classifier.modelLoaded = true; // Mark as "loaded" since API doesn't need loading
+      this.classifier.currentModel = 'api';
+
       this.errorHandler.showToast(
-        'Dispositivo iOS detectado',
-        'Usando modelo ligero recomendado para mejor compatibilidad',
+        'iOS: Modo API Activado',
+        'Usando API en línea (requiere internet). Los modelos locales no funcionan en iOS debido a limitaciones de memoria.',
         'info'
       );
+
+      // Update model selector to show API option
+      const modelSelect = document.getElementById('model-select');
+      if (modelSelect) {
+        modelSelect.value = 'api';
+        modelSelect.disabled = true; // Disable selector on iOS
+      }
+
+      // Update model info
+      const modelInfo = document.getElementById('model-info');
+      if (modelInfo) {
+        modelInfo.textContent = 'iOS usa API en línea. Requiere conexión a internet.';
+        modelInfo.style.backgroundColor = 'rgba(255, 193, 7, 0.1)';
+        modelInfo.style.borderColor = '#ffc107';
+      }
+
+      return; // Skip model loading
     }
 
-    // Get saved model preference or use default
+    // Non-iOS: Load model normally
+    const defaultModel = 'mobilenet-v4';
     const savedModel = await this.dbManager.getSetting('selectedModel', defaultModel);
     console.log('[App] Loading model:', savedModel);
 
