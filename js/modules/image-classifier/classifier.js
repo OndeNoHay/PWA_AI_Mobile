@@ -20,21 +20,24 @@ class ImageClassifier {
         id: 'onnx-community/mobilenetv4_conv_small.e2400_r224_in1k',
         description: 'Modelo ligero optimizado para velocidad. Recomendado para pruebas iniciales.',
         size: '~15 MB',
-        speed: 'Rápido'
+        speed: 'Rápido',
+        iosCompatible: true
       },
       'mobilenet-v3': {
         name: 'MobileNetV3 Large',
         id: 'Xenova/mobilenet_v3_large',
         description: 'Modelo balanceado con buena precisión y velocidad moderada.',
         size: '~20 MB',
-        speed: 'Medio'
+        speed: 'Medio',
+        iosCompatible: true
       },
       'resnet50': {
         name: 'ResNet50',
         id: 'Xenova/resnet-50',
         description: 'Modelo potente con alta precisión. Más lento pero más preciso.',
         size: '~100 MB',
-        speed: 'Lento'
+        speed: 'Lento',
+        iosCompatible: true
       }
     };
   }
@@ -62,10 +65,10 @@ class ImageClassifier {
 
       this.loadingManager.showLoading(`Cargando modelo ${modelConfig.name}...`);
 
-      // Dynamically import Transformers.js
-      console.log('[Classifier] Importing Transformers.js...');
-      const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
-      console.log('[Classifier] Transformers.js imported successfully');
+      // Dynamically import Transformers.js v2 (compatible with iOS Safari)
+      console.log('[Classifier] Importing Transformers.js v2.15.1...');
+      const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.1');
+      console.log('[Classifier] Transformers.js v2.15.1 imported successfully');
 
       // Configure environment
       env.allowLocalModels = false;

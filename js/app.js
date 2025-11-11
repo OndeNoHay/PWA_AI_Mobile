@@ -180,21 +180,19 @@ class App {
       this.errorHandler
     );
 
-    // Determine default model based on device
-    let defaultModel = 'mobilenet-v4';
-
-    // iOS devices should use the lightest model by default due to memory constraints
-    if (this.isIOS()) {
-      defaultModel = 'mobilenet-v4';
-      console.log('[App] iOS detected, using lightweight model by default');
+    // Detect iOS for special handling
+    const isIOSDevice = this.isIOS();
+    if (isIOSDevice) {
+      console.log('[App] iOS device detected - using Transformers.js v2 for compatibility');
       this.errorHandler.showToast(
-        'Dispositivo iOS detectado',
-        'Usando modelo ligero recomendado para mejor compatibilidad',
+        'iOS detectado',
+        'Usando Transformers.js v2 optimizado para iOS Safari',
         'info'
       );
     }
 
-    // Get saved model preference or use default
+    // Load model normally on all platforms (including iOS with v2)
+    const defaultModel = 'mobilenet-v4';
     const savedModel = await this.dbManager.getSetting('selectedModel', defaultModel);
     console.log('[App] Loading model:', savedModel);
 
