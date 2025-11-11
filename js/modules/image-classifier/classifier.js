@@ -130,7 +130,7 @@ class ImageClassifier {
       console.error('[Classifier] Error message:', error.message);
       console.error('[Classifier] Error stack:', error.stack);
 
-      // Check for memory errors (common on iOS/iPad)
+      // Check for specific error types
       if (error.message?.includes('out of memory') ||
           error.message?.includes('RangeError') ||
           error.message?.includes('memory') ||
@@ -141,8 +141,19 @@ class ImageClassifier {
           `El modelo ${this.models[modelKey]?.name || modelKey} es demasiado grande para este dispositivo.`,
           'error'
         );
+      } else if (error.message?.includes('conexión') ||
+                 error.message?.includes('internet') ||
+                 error.message?.includes('network') ||
+                 error.message?.includes('Failed to fetch') ||
+                 error.name === 'TypeError' && !navigator.onLine) {
+        console.error('[Classifier] Network error detected');
+        this.errorHandler.showToast(
+          'Sin conexión',
+          'Necesitas conexión a internet para la primera carga del modelo. Después funcionará offline.',
+          'error'
+        );
       } else {
-        console.error('[Classifier] Non-memory error');
+        console.error('[Classifier] Non-memory/network error');
         this.errorHandler.handleError(error, {
           context: 'model-initialization',
           modelKey: modelKey,

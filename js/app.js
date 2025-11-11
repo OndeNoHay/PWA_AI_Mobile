@@ -43,14 +43,24 @@ class App {
       // Initialize database
       await this.initializeDatabase();
 
-      // Initialize classifier module (auto-detects platform)
-      await this.initializeClassifier();
+        // Initialize classifier module (auto-detects platform)
+      let classifierInitialized = false;
+      try {
+        await this.initializeClassifier();
+        classifierInitialized = true;
+      } catch (error) {
+        // Classifier initialization failed - log but continue
+        console.error('[App] Classifier initialization failed:', error);
+        classifierInitialized = false;
+      }
 
-      // Initialize UI controller
-      this.initializeUI();
+      // Initialize UI controller only if classifier loaded
+      if (classifierInitialized) {
+        this.initializeUI();
+      }
 
       // Check and update app status
-      this.updateAppStatus();
+      this.updateAppStatus(!classifierInitialized);
 
       // Setup online/offline detection
       this.setupConnectivityDetection();
@@ -240,14 +250,19 @@ class App {
 
   /**
    * Update app status indicator
+   * @param {boolean} hasError - Whether there was an error during initialization
    */
-  updateAppStatus() {
+  updateAppStatus(hasError = false) {
     const isOnline = navigator.onLine;
     const modelLoaded = this.classifier?.isModelLoaded();
     const adapterInfo = this.classifier?.getAdapterInfo();
 
     if (this.statusDot && this.statusText) {
-      if (modelLoaded && isOnline) {
+      if (hasError) {
+        this.statusDot.className = 'status-dot';
+        this.statusDot.style.backgroundColor = '#ef4444'; // Red color for error
+        this.statusText.textContent = isOnline ? 'Error al cargar' : 'Sin conexión - Requiere internet para primera carga';
+      } else if (modelLoaded && isOnline) {
         this.statusDot.className = 'status-dot online';
         this.statusText.textContent = `Online - ${adapterInfo?.name || 'Listo'}`;
       } else if (modelLoaded && !isOnline) {

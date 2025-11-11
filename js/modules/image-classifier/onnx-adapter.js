@@ -17,7 +17,7 @@ class ONNXAdapter {
 
   /**
    * Initialize ONNX Runtime Web with the specified model
-   * @param {string} modelPath - Path to ONNX model file
+   * @param {string} modelPath - Path to ONNX model file (URL or local path)
    * @param {Object} options - Configuration options
    * @returns {Promise<void>}
    */
@@ -47,7 +47,7 @@ class ONNXAdapter {
       const executionProvider = options.executionProvider || 'webgl';
       console.log('[ONNX Adapter] Using execution provider:', executionProvider);
 
-      this.loadingManager.updateMessage('Descargando modelo ONNX...');
+      this.loadingManager.updateMessage('Cargando modelo ONNX...');
 
       const sessionOptions = {
         executionProviders: [executionProvider],
@@ -57,8 +57,12 @@ class ONNXAdapter {
         enableMemPattern: false    // Disable for iOS
       };
 
+      // Try to load model with caching support
+      console.log('[ONNX Adapter] Loading model with cache support...');
+      const modelData = await this.loadModelWithCache(modelPath);
+
       console.log('[ONNX Adapter] Creating inference session...');
-      this.session = await this.ort.InferenceSession.create(modelPath, sessionOptions);
+      this.session = await this.ort.InferenceSession.create(modelData, sessionOptions);
       console.log('[ONNX Adapter] Session created successfully');
       console.log('[ONNX Adapter] Input names:', this.session.inputNames);
       console.log('[ONNX Adapter] Output names:', this.session.outputNames);
@@ -76,6 +80,50 @@ class ONNXAdapter {
       console.error('[ONNX Adapter] Error:', error);
       console.error('[ONNX Adapter] Stack:', error.stack);
 
+      throw error;
+    }
+  }
+
+  /**
+   * Load model with cache support using Cache API
+   * @param {string} modelUrl - URL or path to model
+   * @returns {Promise<ArrayBuffer>} Model data
+   */
+  async loadModelWithCache(modelUrl) {
+    const CACHE_NAME = 'onnx-models-v1';
+
+    try {
+      // Try to get from cache first
+      const cache = await caches.open(CACHE_NAME);
+      const cachedResponse = await cache.match(modelUrl);
+
+      if (cachedResponse) {
+        console.log('[ONNX Adapter] Model found in cache');
+        return await cachedResponse.arrayBuffer();
+      }
+
+      // Not in cache, fetch from network
+      console.log('[ONNX Adapter] Model not in cache, fetching from network...');
+
+      // Check if online
+      if (!navigator.onLine) {
+        throw new Error('No hay conexión a internet y el modelo no está en caché. Por favor, conecta a internet para la primera carga.');
+      }
+
+      const response = await fetch(modelUrl);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`);
+      }
+
+      // Cache for future use
+      await cache.put(modelUrl, response.clone());
+      console.log('[ONNX Adapter] Model cached successfully');
+
+      return await response.arrayBuffer();
+
+    } catch (error) {
+      console.error('[ONNX Adapter] Error loading model:', error);
       throw error;
     }
   }

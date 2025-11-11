@@ -117,12 +117,16 @@ function isStaticAsset(url) {
 }
 
 /**
- * Check if URL is a CDN resource
+ * Check if URL is a CDN resource or model file
  */
 function isCDNResource(url) {
   return url.hostname.includes('cdn.jsdelivr.net') ||
          url.hostname.includes('huggingface.co') ||
-         url.hostname.includes('unpkg.com');
+         url.hostname.includes('unpkg.com') ||
+         url.hostname.includes('github.com') ||
+         url.hostname.includes('githubusercontent.com') ||
+         url.pathname.includes('.onnx') ||
+         url.pathname.includes('/models/');
 }
 
 /**

@@ -31,10 +31,14 @@ class TransformersAdapter {
       this.transformers = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@3.0.2');
       console.log('[Transformers Adapter] Transformers.js v3 imported successfully');
 
-      // Configure environment
-      this.transformers.env.allowLocalModels = false;
+      // Configure environment - allow local models for offline support
+      this.transformers.env.allowLocalModels = true;
       this.transformers.env.allowRemoteModels = true;
       this.transformers.env.backends.onnx.wasm.numThreads = options.numThreads || 4;
+
+      // Use local cache directory for models (IndexedDB backed)
+      this.transformers.env.localModelPath = './models/';
+      this.transformers.env.cacheDir = './.cache/';
 
       // Detect device (WebGPU or WASM)
       const device = await this.detectDevice();
