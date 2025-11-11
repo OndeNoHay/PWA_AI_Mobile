@@ -2,14 +2,14 @@
   "name": "AI Technical Assistant",
   "short_name": "AI Tech",
   "description": "Clasificador de imágenes técnicas offline con IA local",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#1e3a8a",
   "icons": [
     {
-      "src": "/icons/icon.svg",
+      "src": "./icons/icon.svg",
       "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -21,8 +21,8 @@
       "name": "Clasificar Imagen",
       "short_name": "Clasificar",
       "description": "Clasificar una imagen técnica",
-      "url": "/?module=classifier",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "96x96", "type": "image/svg+xml" }]
+      "url": "./?module=classifier",
+      "icons": [{ "src": "./icons/icon.svg", "sizes": "96x96", "type": "image/svg+xml" }]
     }
   ],
   "prefer_related_applications": false

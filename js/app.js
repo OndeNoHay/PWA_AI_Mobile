@@ -102,7 +102,7 @@ class App {
     if ('serviceWorker' in navigator) {
       try {
         console.log('[App] Registering service worker...');
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        const registration = await navigator.serviceWorker.register('./sw.js');
         console.log('[App] Service Worker registered:', registration.scope);
 
         // Listen for updates

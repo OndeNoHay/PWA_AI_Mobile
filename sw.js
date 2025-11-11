@@ -1,7 +1,7 @@
 // Service Worker for AI Technical Assistant PWA
-// Version 1.0.0
+// Version 1.0.1
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.1';
 const CACHE_NAMES = {
   static: `ai-pwa-static-${CACHE_VERSION}`,
   models: `ai-pwa-models-${CACHE_VERSION}`,
@@ -10,12 +10,12 @@ const CACHE_NAMES = {
 
 // Static assets to cache on install
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/css/main.css',
-  '/css/components.css',
-  '/manifest.json',
-  '/icons/icon.svg'
+  './',
+  './index.html',
+  './css/main.css',
+  './css/components.css',
+  './manifest.json',
+  './icons/icon.svg'
 ];
 
 // ========================================
@@ -92,7 +92,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request).catch(() => {
         // Return offline page if available
-        return caches.match('/index.html');
+        return caches.match('./index.html');
       })
     );
   }
@@ -104,14 +104,16 @@ self.addEventListener('fetch', (event) => {
 
 /**
  * Check if URL is a static asset
+ * Works with both absolute paths (localhost) and subpaths (GitHub Pages)
  */
 function isStaticAsset(url) {
-  return url.pathname.startsWith('/css/') ||
-         url.pathname.startsWith('/js/') ||
-         url.pathname.startsWith('/icons/') ||
-         url.pathname === '/' ||
-         url.pathname === '/index.html' ||
-         url.pathname === '/manifest.json';
+  const path = url.pathname;
+  return path.includes('/css/') ||
+         path.includes('/js/') ||
+         path.includes('/icons/') ||
+         path.endsWith('/') ||
+         path.endsWith('/index.html') ||
+         path.endsWith('/manifest.json');
 }
 
 /**
