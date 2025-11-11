@@ -140,6 +140,23 @@ class App {
   }
 
   /**
+   * Detect if running on iOS/iPadOS
+   * @returns {boolean}
+   */
+  isIOS() {
+    return [
+      'iPad Simulator',
+      'iPhone Simulator',
+      'iPod Simulator',
+      'iPad',
+      'iPhone',
+      'iPod'
+    ].includes(navigator.platform)
+    // iPad on iOS 13 detection
+    || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+  }
+
+  /**
    * Initialize classifier module
    */
   async initializeClassifier() {
@@ -151,17 +168,46 @@ class App {
       this.errorHandler
     );
 
+    // Determine default model based on device
+    let defaultModel = 'mobilenet-v4';
+
+    // iOS devices should use the lightest model by default due to memory constraints
+    if (this.isIOS()) {
+      defaultModel = 'mobilenet-v4';
+      console.log('[App] iOS detected, using lightweight model by default');
+      this.errorHandler.showToast(
+        'Dispositivo iOS detectado',
+        'Usando modelo ligero recomendado para mejor compatibilidad',
+        'info'
+      );
+    }
+
     // Get saved model preference or use default
-    const savedModel = await this.dbManager.getSetting('selectedModel', 'mobilenet-v4');
+    const savedModel = await this.dbManager.getSetting('selectedModel', defaultModel);
     console.log('[App] Loading model:', savedModel);
 
     // Initialize with saved or default model
-    await this.classifier.initialize(savedModel);
+    try {
+      await this.classifier.initialize(savedModel);
+    } catch (error) {
+      // If model fails to load (e.g., memory error), try with lightest model
+      if (savedModel !== 'mobilenet-v4') {
+        console.warn('[App] Model failed to load, falling back to MobileNetV4');
+        this.errorHandler.showToast(
+          'Cargando modelo alternativo',
+          'Usando modelo más ligero debido a limitaciones del dispositivo',
+          'warning'
+        );
+        await this.classifier.initialize('mobilenet-v4');
+      } else {
+        throw error;
+      }
+    }
 
     // Update model selector UI
     const modelSelect = document.getElementById('model-select');
     if (modelSelect) {
-      modelSelect.value = savedModel;
+      modelSelect.value = this.classifier.getCurrentModel() || savedModel;
     }
   }
 
@@ -228,17 +274,20 @@ class App {
 }
 
 // Initialize app when DOM is ready
+let appInstance;
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    const app = new App();
-    app.init();
+    appInstance = new App();
+    appInstance.init();
+    // Make app globally accessible for debugging
+    window.app = appInstance;
   });
 } else {
-  const app = new App();
-  app.init();
+  appInstance = new App();
+  appInstance.init();
+  // Make app globally accessible for debugging
+  window.app = appInstance;
 }
-
-// Make app globally accessible for debugging
-window.app = app;
 
 export default App;

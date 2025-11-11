@@ -97,7 +97,19 @@ class ImageClassifier {
       this.modelLoaded = false;
       this.loadingManager.hideLoading();
       console.error('[Classifier] Error initializing model:', error);
-      this.errorHandler.handleError(error, { context: 'model-initialization' });
+
+      // Check for memory errors (common on iOS/iPad)
+      if (error.message?.includes('out of memory') ||
+          error.message?.includes('RangeError') ||
+          error.name === 'RangeError') {
+        this.errorHandler.showToast(
+          'Memoria insuficiente',
+          'El modelo es demasiado grande para este dispositivo. Por favor, selecciona un modelo más ligero (MobileNetV4).',
+          'error'
+        );
+      } else {
+        this.errorHandler.handleError(error, { context: 'model-initialization' });
+      }
       throw error;
     }
   }

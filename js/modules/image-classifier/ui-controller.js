@@ -70,16 +70,25 @@ class ClassifierUIController {
     });
 
     // Upload buttons
-    this.elements.uploadBtn?.addEventListener('click', () => {
+    this.elements.uploadBtn?.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent event from bubbling to uploadArea
       this.elements.fileInput?.click();
     });
 
-    this.elements.uploadArea?.addEventListener('click', () => {
-      this.elements.fileInput?.click();
+    this.elements.uploadArea?.addEventListener('click', (e) => {
+      // Only trigger if clicking the area itself, not the button
+      if (e.target === this.elements.uploadArea || e.target.closest('.upload-text') || e.target.closest('.upload-icon')) {
+        this.elements.fileInput?.click();
+      }
     });
 
     this.elements.fileInput?.addEventListener('change', (e) => {
-      this.handleFileSelect(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file) {
+        this.handleFileSelect(file);
+        // Reset input to allow selecting the same file again
+        e.target.value = '';
+      }
     });
 
     // Preview buttons
